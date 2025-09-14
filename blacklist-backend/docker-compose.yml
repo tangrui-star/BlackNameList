@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - DB_HOST=47.109.97.153
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=Root@2025!
+      - DB_DATABASE=blacklist
+      - DB_CHARSET=utf8mb4
+      - SECRET_KEY=your-secret-key-here
+      - DEBUG=true
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

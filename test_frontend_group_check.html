@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分组批量检测测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-warning { background-color: #ffc107; color: black; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+            white-space: pre-wrap;
+        }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .success { background-color: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <h1>🧪 分组批量检测测试</h1>
+    
+    <div class="test-section">
+        <h3>1. 认证测试</h3>
+        <button class="btn-primary" onclick="testAuth()">测试登录</button>
+        <div id="authResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. 获取分组列表</h3>
+        <button class="btn-success" onclick="testGetGroups()">获取分组列表</button>
+        <div id="groupsResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. 分组批量检测</h3>
+        <button class="btn-warning" onclick="testBatchCheck()" id="batchCheckBtn" disabled>批量检测黑名单</button>
+        <div id="batchCheckResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. 查看检测结果</h3>
+        <button class="btn-primary" onclick="testGetOrders()">查看订单列表</button>
+        <div id="ordersResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api/v1';
+        let token = null;
+        let selectedGroupId = null;
+
+        async function testAuth() {
+            const resultDiv = document.getElementById('authResult');
+            resultDiv.textContent = '正在测试认证...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    token = data.access_token;
+                    resultDiv.textContent = `✅ 认证成功\nToken: ${token.substring(0, 20)}...`;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.textContent = `❌ 认证失败: ${data.detail || '未知错误'}`;
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `❌ 认证异常: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testGetGroups() {
+            const resultDiv = document.getElementById('groupsResult');
+            resultDiv.textContent = '正在获取分组列表...';
+            
+            if (!token) {
+                resultDiv.textContent = '❌ 请先进行认证';
+                resultDiv.className = 'result error';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/groups/list`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        skip: 0,
+                        limit: 10,
+                        status: 'active',
+                        search: ''
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.textContent = `✅ 获取分组成功\n分组数量: ${data.data.length}\n\n分组列表:\n${data.data.map(g => `- ${g.name} (ID: ${g.id}) - 订单: ${g.total_orders}, 已检测: ${g.checked_orders}, 匹配: ${g.blacklist_matches}`).join('\n')}`;
+                    resultDiv.className = 'result success';
+                    
+                    // 自动选择20250914分组
+                    const targetGroup = data.data.find(g => g.name === '20250914');
+                    if (targetGroup) {
+                        selectedGroupId = targetGroup.id;
+                        document.getElementById('batchCheckBtn').disabled = false;
+                        resultDiv.textContent += `\n\n🎯 自动选择分组: ${targetGroup.name} (ID: ${targetGroup.id})`;
+                    }
+                } else {
+                    resultDiv.textContent = `❌ 获取分组失败: ${data.detail || '未知错误'}`;
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `❌ 获取分组异常: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testBatchCheck() {
+            const resultDiv = document.getElementById('batchCheckResult');
+            resultDiv.textContent = '正在执行批量检测...';
+            
+            if (!token || !selectedGroupId) {
+                resultDiv.textContent = '❌ 请先进行认证和选择分组';
+                resultDiv.className = 'result error';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/groups/batch-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        group_id: selectedGroupId,
+                        force_recheck: true
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.textContent = `✅ 批量检测成功!\n\n检测结果:\n- 分组名称: ${data.group_name}\n- 总订单数: ${data.total_orders}\n- 已检测订单: ${data.checked_orders}\n- 黑名单匹配: ${data.blacklist_matches}\n- 新发现匹配: ${data.new_matches}\n- 检测状态: ${data.status}\n- 检测时间: ${data.check_time}\n- 详细信息: ${data.message}`;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.textContent = `❌ 批量检测失败: ${data.detail || '未知错误'}`;
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `❌ 批量检测异常: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testGetOrders() {
+            const resultDiv = document.getElementById('ordersResult');
+            resultDiv.textContent = '正在获取订单列表...';
+            
+            if (!token || !selectedGroupId) {
+                resultDiv.textContent = '❌ 请先进行认证和选择分组';
+                resultDiv.className = 'result error';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/orders/list`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        group_id: selectedGroupId,
+                        skip: 0,
+                        limit: 10,
+                        group_tour_number: '',
+                        orderer: '',
+                        contact_phone: '',
+                        order_status: '',
+                        is_blacklist_checked: ''
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.textContent = `✅ 获取订单成功!\n\n订单数量: ${data.data.length}\n总订单数: ${data.total}\n\n前10条订单:\n${data.data.map((o, i) => `${i+1}. ID: ${o.id}, 下单人: ${o.orderer}, 电话: ${o.contact_phone}, 已检测: ${o.is_blacklist_checked}, 风险等级: ${o.blacklist_risk_level}, 匹配信息: ${o.blacklist_match_info || 'N/A'}`).join('\n')}`;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.textContent = `❌ 获取订单失败: ${data.detail || '未知错误'}`;
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `❌ 获取订单异常: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>

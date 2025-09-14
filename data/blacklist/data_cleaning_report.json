@@ -1,0 +1,19 @@
+{
+  "total_original": 190,
+  "empty_rows_removed": 7,
+  "valid_records": 183,
+  "duplicates_removed": 33,
+  "final_records": 150,
+  "with_ktt_name": 111,
+  "with_phone": 149,
+  "with_wechat_name": 60,
+  "with_wechat_id": 58,
+  "with_address1": 146,
+  "with_address2": 20,
+  "with_reason": 131,
+  "risk_levels": {
+    "medium": 79,
+    "low": 40,
+    "high": 31
+  }
+}

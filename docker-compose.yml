@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: blacklist-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: blacklist_root_password
+      MYSQL_DATABASE: blacklist_system
+      MYSQL_USER: blacklist_user
+      MYSQL_PASSWORD: blacklist_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./data/blacklist:/docker-entrypoint-initdb.d
+    networks:
+      - blacklist-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: blacklist-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - blacklist-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./blacklist-backend
+      dockerfile: Dockerfile
+    container_name: blacklist-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://blacklist_user:blacklist_password@mysql:3306/blacklist_system
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+    depends_on:
+      - mysql
+      - redis
+    volumes:
+      - ./data:/app/data
+    networks:
+      - blacklist-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./blacklist-frontend
+      dockerfile: Dockerfile
+    container_name: blacklist-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - blacklist-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: blacklist-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - blacklist-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  blacklist-network:
+    driver: bridge
+
