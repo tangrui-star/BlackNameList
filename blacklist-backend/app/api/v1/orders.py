@@ -16,12 +16,45 @@ from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.order import Order as OrderModel, OrderStatus
 from app.models.blacklist import Blacklist
+from app.models.group import Group
 from app.schemas.order import (
     OrderCreate, OrderUpdate, Order as OrderSchema, OrderListResponse, 
     OrderSearchParams, ExcelUploadResponse, BlacklistCheckResponse
 )
 
 router = APIRouter()
+
+
+def map_order_status(status_str: str) -> OrderStatus:
+    """将中文订单状态映射为英文枚举"""
+    status_mapping = {
+        '已支付': OrderStatus.PAID,
+        '已发货': OrderStatus.SHIPPED,
+        '已送达': OrderStatus.DELIVERED,
+        '已取消': OrderStatus.CANCELLED,
+        '已退款': OrderStatus.REFUNDED,
+        '待处理': OrderStatus.PENDING,
+        'pending': OrderStatus.PENDING,
+        'paid': OrderStatus.PAID,
+        'shipped': OrderStatus.SHIPPED,
+        'delivered': OrderStatus.DELIVERED,
+        'cancelled': OrderStatus.CANCELLED,
+        'refunded': OrderStatus.REFUNDED,
+    }
+    
+    # 去除空格并转换为小写进行匹配
+    clean_status = status_str.strip().lower()
+    
+    # 先尝试直接匹配
+    if clean_status in status_mapping:
+        return status_mapping[clean_status]
+    
+    # 尝试中文匹配
+    if status_str in status_mapping:
+        return status_mapping[status_str]
+    
+    # 默认返回待处理状态
+    return OrderStatus.PENDING
 
 
 @router.post("/list", response_model=OrderListResponse)
@@ -140,6 +173,7 @@ async def delete_order(
 @router.post("/upload-excel", response_model=ExcelUploadResponse)
 async def upload_excel(
     file: UploadFile = File(...),
+    group_name: Optional[str] = Query(None, description="分组名称"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -148,16 +182,37 @@ async def upload_excel(
         raise HTTPException(status_code=400, detail="只支持Excel文件")
     
     try:
+        # 确定分组名称：如果提供了则使用，否则使用文件名（去掉扩展名）
+        if group_name and group_name.strip():
+            group_name_final = group_name.strip()
+        else:
+            # 使用文件名作为分组名称，去掉扩展名
+            import os
+            group_name_final = os.path.splitext(file.filename)[0]
+        
+        # 创建新分组
+        group = Group(
+            name=group_name_final,
+            description=f"通过Excel导入创建的分组 - {file.filename}",
+            file_name=file.filename,
+            created_by=current_user.id
+        )
+        db.add(group)
+        db.flush()  # 获取分组ID但不提交
+        
         # 读取Excel文件
         contents = await file.read()
         df = pd.read_excel(io.BytesIO(contents))
         
         # 验证列名 - 根据您提供的Excel列头
         required_columns = [
-            '跟团号', '下单人（可以对应kkt名字）', '团员备注', '支付时间', '团长备注',
+            '跟团号', '下单人', '团员备注', '支付时间', '团长备注',
             '商品', '订单金额', '退款金额', '订单状态',
-            '自提点', '收货人', '联系电话（对应phone）', '详细地址'
+            '自提点', '收货人', '联系电话', '详细地址'
         ]
+        
+        # 可选列
+        optional_columns = ['分类', '数量']
         
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
@@ -175,23 +230,32 @@ async def upload_excel(
             try:
                 # 数据清洗和转换 - 根据新的Excel列头
                 order_data = {
+                    'group_id': group.id,  # 使用新创建的分组ID
                     'group_tour_number': str(row['跟团号']) if pd.notna(row['跟团号']) else None,
-                    'orderer': str(row['下单人（可以对应kkt名字）']) if pd.notna(row['下单人（可以对应kkt名字）']) else None,
+                    'orderer': str(row['下单人']) if pd.notna(row['下单人']) else None,
                     'member_remarks': str(row['团员备注']) if pd.notna(row['团员备注']) else None,
                     'payment_time': row['支付时间'] if pd.notna(row['支付时间']) else None,
                     'group_leader_remarks': str(row['团长备注']) if pd.notna(row['团长备注']) else None,
                     'product': str(row['商品']) if pd.notna(row['商品']) else None,
                     'order_amount': Decimal(str(row['订单金额'])) if pd.notna(row['订单金额']) else None,
                     'refund_amount': Decimal(str(row['退款金额'])) if pd.notna(row['退款金额']) else Decimal('0'),
-                    'order_status': str(row['订单状态']).lower() if pd.notna(row['订单状态']) else 'pending',
+                    'order_status': map_order_status(str(row['订单状态'])) if pd.notna(row['订单状态']) else OrderStatus.PENDING,
                     'pickup_point': str(row['自提点']) if pd.notna(row['自提点']) else None,
                     'consignee': str(row['收货人']) if pd.notna(row['收货人']) else None,
-                    'contact_phone': str(row['联系电话（对应phone）']) if pd.notna(row['联系电话（对应phone）']) else None,
+                    'contact_phone': str(row['联系电话']) if pd.notna(row['联系电话']) else None,
                     'detailed_address': str(row['详细地址']) if pd.notna(row['详细地址']) else None,
                 }
                 
+                # 处理可选列（如果存在的话）
+                if '分类' in df.columns and pd.notna(row['分类']):
+                    # 分类字段暂不存储到数据库，可以在这里添加处理逻辑
+                    pass
+                if '数量' in df.columns and pd.notna(row['数量']):
+                    # 数量字段暂不存储到数据库，可以在这里添加处理逻辑
+                    pass
+                
                 # 创建订单
-                order = Order(**order_data)
+                order = OrderModel(**order_data)
                 db.add(order)
                 imported_count += 1
                 
@@ -199,14 +263,20 @@ async def upload_excel(
                 failed_count += 1
                 errors.append(f"第{index + 2}行数据错误: {str(e)}")
         
+        # 更新分组的订单统计
+        group.total_orders = imported_count
+        group.updated_at = datetime.now()
+        
         db.commit()
         
         return ExcelUploadResponse(
             success=True,
-            message=f"成功导入{imported_count}条订单，失败{failed_count}条",
+            message=f"成功创建分组'{group.name}'并导入{imported_count}条订单，失败{failed_count}条",
             imported_count=imported_count,
             failed_count=failed_count,
-            errors=errors
+            errors=errors,
+            group_name=group.name,
+            group_id=group.id
         )
         
     except Exception as e:

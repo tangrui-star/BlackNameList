@@ -59,16 +59,17 @@
           v-loading="loading"
           stripe
           border
+          style="width: 100%"
         >
           <el-table-column prop="id" label="ID" width="80" />
           
-          <el-table-column prop="username" label="用户名" width="120" />
+          <el-table-column prop="username" label="用户名" min-width="120" />
           
-          <el-table-column prop="email" label="邮箱" width="200" show-overflow-tooltip />
+          <el-table-column prop="email" label="邮箱" min-width="200" show-overflow-tooltip />
           
-          <el-table-column prop="full_name" label="姓名" width="120" show-overflow-tooltip />
+          <el-table-column prop="full_name" label="姓名" min-width="120" show-overflow-tooltip />
           
-          <el-table-column prop="phone" label="电话" width="130" />
+          <el-table-column prop="phone" label="电话" min-width="130" />
           
           <el-table-column prop="role" label="角色" width="120">
             <template #default="{ row }">
@@ -87,13 +88,13 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="last_login" label="最后登录" width="160">
+          <el-table-column prop="last_login" label="最后登录" min-width="160">
             <template #default="{ row }">
               {{ row.last_login ? formatDate(row.last_login) : '-' }}
             </template>
           </el-table-column>
           
-          <el-table-column prop="created_at" label="创建时间" width="160">
+          <el-table-column prop="created_at" label="创建时间" min-width="160">
             <template #default="{ row }">
               {{ formatDate(row.created_at) }}
             </template>
@@ -338,6 +339,11 @@ onMounted(() => {
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  width: 100%;
+}
+
+.table-container .el-table {
+  width: 100% !important;
 }
 
 .pagination-container {

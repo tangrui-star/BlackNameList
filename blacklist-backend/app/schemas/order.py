@@ -109,6 +109,8 @@ class ExcelUploadResponse(BaseModel):
     imported_count: int
     failed_count: int
     errors: List[str] = []
+    group_name: Optional[str] = None
+    group_id: Optional[int] = None
 
 
 class BlacklistCheckResponse(BaseModel):

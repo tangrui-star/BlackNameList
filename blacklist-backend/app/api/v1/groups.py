@@ -253,9 +253,18 @@ async def batch_check_blacklist(
                 logger.error(f"检测订单 {order.id} 时出错: {e}")
                 continue
     
+    # 重新计算总黑名单匹配数（包括之前已检测的）
+    total_blacklist_matches = db.query(Order).filter(
+        Order.group_id == request.group_id,
+        Order.is_active == True,
+        Order.is_blacklist_checked == "yes",
+        Order.blacklist_risk_level != "none"
+    ).count()
+    
     # 更新分组统计
+    group.total_orders = len(orders)  # 更新总订单数
     group.checked_orders = checked_count
-    group.blacklist_matches = new_matches
+    group.blacklist_matches = total_blacklist_matches  # 使用重新计算的总匹配数
     group.updated_at = datetime.now()
     db.commit()
     
@@ -264,11 +273,11 @@ async def batch_check_blacklist(
         group_name=group.name,
         total_orders=len(orders),
         checked_orders=checked_count,
-        blacklist_matches=group.blacklist_matches,
+        blacklist_matches=total_blacklist_matches,
         new_matches=new_matches,
         check_time=datetime.now(),
         status="completed",
-        message=f"批量检测完成，检测了 {checked_count} 个订单，发现 {new_matches} 个黑名单匹配"
+        message=f"批量检测完成，检测了 {checked_count} 个订单，发现 {new_matches} 个新黑名单匹配，总计 {total_blacklist_matches} 个匹配"
     )
 
 

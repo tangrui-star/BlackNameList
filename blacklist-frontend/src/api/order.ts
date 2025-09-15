@@ -4,6 +4,7 @@
 import request from './request'
 
 export interface OrderSearchParams {
+  group_id?: number
   group_tour_number?: string
   orderer?: string
   contact_phone?: string

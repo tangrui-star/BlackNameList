@@ -5,22 +5,22 @@
       <div class="page-header">
         <h1 class="page-title">订单管理</h1>
         <div class="page-actions">
-          <el-button type="primary" @click="goToCreate">
+          <!-- <el-button type="primary" @click="goToCreate">
             <el-icon><Plus /></el-icon>
             添加订单
-          </el-button>
+          </el-button> -->
           <el-button type="success" @click="handleImport">
             <el-icon><Upload /></el-icon>
             导入Excel
           </el-button>
-          <el-button type="warning" @click="handleExport">
+          <!-- <el-button type="warning" @click="handleExport">
             <el-icon><Download /></el-icon>
             导出数据
           </el-button>
           <el-button type="danger" @click="handleBatchCheckBlacklist" :disabled="selectedRows.length === 0">
             <el-icon><Search /></el-icon>
             批量检测黑名单
-          </el-button>
+          </el-button> -->
         </div>
       </div>
 
@@ -61,10 +61,11 @@
             border
             @row-click="handleGroupSelect"
             highlight-current-row
+            style="width: 100%"
           >
-            <el-table-column prop="name" label="分组名称" width="200" show-overflow-tooltip />
-            <el-table-column prop="description" label="描述" width="250" show-overflow-tooltip />
-            <el-table-column prop="file_name" label="文件名" width="200" show-overflow-tooltip />
+            <el-table-column prop="name" label="分组名称" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="description" label="描述" min-width="250" show-overflow-tooltip />
+            <el-table-column prop="file_name" label="文件名" min-width="200" show-overflow-tooltip />
             <el-table-column prop="total_orders" label="订单总数" width="100" align="center" />
             <el-table-column prop="checked_orders" label="已检测" width="100" align="center" />
             <el-table-column prop="blacklist_matches" label="黑名单匹配" width="120" align="center">
@@ -87,8 +88,12 @@
                 {{ formatDate(row.created_at) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
+                <el-button size="small" type="warning" @click="handleGroupBlacklistCheck(row)">
+                  <el-icon><Search /></el-icon>
+                  检测黑名单
+                </el-button>
                 <el-button size="small" @click="handleGroupEdit(row)">编辑</el-button>
                 <el-button size="small" type="danger" @click="handleGroupDelete(row)">删除</el-button>
               </template>
@@ -100,7 +105,7 @@
         <div v-if="selectedGroup" class="selected-group-info">
           <el-alert
             :title="`当前选中分组: ${selectedGroup.name}`"
-            :description="`订单总数: ${selectedGroup.total_orders} | 已检测: ${selectedGroup.checked_orders} | 黑名单匹配: ${selectedGroup.blacklist_matches}`"
+            :description="getGroupStatsDescription(selectedGroup)"
             type="info"
             show-icon
             :closable="false"
@@ -185,19 +190,20 @@
           border
           @selection-change="handleSelectionChange"
           :default-sort="{ prop: 'id', order: 'descending' }"
+          style="width: 100%"
         >
           <el-table-column type="selection" width="55" />
           <el-table-column prop="id" label="订单ID" width="80" sortable />
-          <el-table-column prop="group_tour_number" label="跟团号" width="120" show-overflow-tooltip />
-          <el-table-column prop="orderer" label="下单人（KTT名字）" width="120" show-overflow-tooltip />
-          <el-table-column prop="member_remarks" label="团员备注" width="150" show-overflow-tooltip />
-          <el-table-column prop="payment_time" label="支付时间" width="160" sortable>
+          <el-table-column prop="group_tour_number" label="跟团号" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="orderer" label="下单人（KTT名字）" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="member_remarks" label="团员备注" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="payment_time" label="支付时间" min-width="160" sortable>
             <template #default="{ row }">
               {{ formatDate(row.payment_time) }}
             </template>
           </el-table-column>
-          <el-table-column prop="group_leader_remarks" label="团长备注" width="150" show-overflow-tooltip />
-          <el-table-column prop="product" label="商品" width="200" show-overflow-tooltip />
+          <el-table-column prop="group_leader_remarks" label="团长备注" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="product" label="商品" min-width="200" show-overflow-tooltip />
           <el-table-column prop="order_amount" label="订单金额" width="100" sortable>
             <template #default="{ row }">
               <span class="amount">¥{{ row.order_amount || '0.00' }}</span>
@@ -215,10 +221,10 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="pickup_point" label="自提点" width="150" show-overflow-tooltip />
-          <el-table-column prop="consignee" label="收货人" width="100" show-overflow-tooltip />
-          <el-table-column prop="contact_phone" label="联系电话" width="140" show-overflow-tooltip />
-          <el-table-column prop="detailed_address" label="详细地址" width="200" show-overflow-tooltip />
+          <el-table-column prop="pickup_point" label="自提点" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="consignee" label="收货人" min-width="100" show-overflow-tooltip />
+          <el-table-column prop="contact_phone" label="联系电话" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="detailed_address" label="详细地址" min-width="200" show-overflow-tooltip />
           <el-table-column prop="is_blacklist_checked" label="黑名单检测" width="120">
             <template #default="{ row }">
               <el-tag :type="getBlacklistCheckType(row.is_blacklist_checked)">
@@ -427,8 +433,21 @@
         <ul>
           <li>文件格式：.xlsx 或 .xls</li>
           <li>文件大小：不超过10MB</li>
-          <li>必须包含以下列：跟团号、下单人、团员备注、支付时间、团长备注、商品、分类、数量、订单金额、退款金额、订单状态、自提点、收货人、联系电话、详细地址</li>
+          <li>必须包含以下列：跟团号、下单人、团员备注、支付时间、团长备注、商品、订单金额、退款金额、订单状态、自提点、收货人、联系电话、详细地址</li>
+          <li>可选列：分类、数量（如果存在会被忽略）</li>
         </ul>
+      </div>
+      
+      <!-- 分组名称输入 -->
+      <div class="group-selection" style="margin-bottom: 20px;">
+        <el-form-item label="分组名称">
+          <el-input 
+            v-model="importGroupName" 
+            placeholder="留空则使用文件名作为分组名称" 
+            style="width: 100%"
+            clearable
+          />
+        </el-form-item>
       </div>
       <el-upload
         ref="uploadRef"
@@ -656,7 +675,7 @@ import { orderApi } from '@/api/order'
 import { groupApi } from '@/api/group'
 import { useAuthStore } from '@/stores/auth'
 import dayjs from 'dayjs'
-import type { Group, GroupStatus } from '@/types/group'
+import type { Group } from '@/types/group'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -707,9 +726,17 @@ const pagination = reactive({
 const importDialogVisible = ref(false)
 const uploadRef = ref()
 const fileList = ref<UploadUserFile[]>([])
+const importGroupName = ref<string>('')
 
 // 计算属性
-const uploadAction = computed(() => '/api/v1/orders/upload-excel')
+const uploadAction = computed(() => {
+  const baseUrl = '/api/v1/orders/upload-excel'
+  // 如果有分组名称则使用，否则后端会使用文件名
+  if (importGroupName.value && importGroupName.value.trim()) {
+    return `${baseUrl}?group_name=${encodeURIComponent(importGroupName.value.trim())}`
+  }
+  return baseUrl
+})
 const uploadHeaders = computed(() => ({
   'Authorization': `Bearer ${authStore.token}`
 }))
@@ -958,15 +985,15 @@ const refreshDetectionResults = async () => {
 }
 
 // 计算属性 - 各种筛选结果（只显示匹配的订单）
-const matchedResults = computed(() => {
-  return detectionResults.value.filter(order => 
-    order.blacklist_risk_level && 
-    order.blacklist_risk_level !== 'none' &&
-    order.blacklist_risk_level !== 'LOW' && // 排除低风险
-    order.blacklist_match_info && 
-    order.blacklist_match_info !== '未匹配到黑名单'
-  )
-})
+// const matchedResults = computed(() => {
+//   return detectionResults.value.filter(order => 
+//     order.blacklist_risk_level && 
+//     order.blacklist_risk_level !== 'none' &&
+//     order.blacklist_risk_level !== 'LOW' && // 排除低风险
+//     order.blacklist_match_info && 
+//     order.blacklist_match_info !== '未匹配到黑名单'
+//   )
+// })
 
 const highRiskResults = computed(() => {
   return detectionResults.value.filter(order => 
@@ -980,11 +1007,11 @@ const mediumRiskResults = computed(() => {
   )
 })
 
-const lowRiskResults = computed(() => {
-  return detectionResults.value.filter(order => 
-    order.blacklist_risk_level === 'LOW'
-  )
-})
+// const lowRiskResults = computed(() => {
+//   return detectionResults.value.filter(order => 
+//     order.blacklist_risk_level === 'LOW'
+//   )
+// })
 
 // 设置筛选条件
 const setFilter = (filterType: string) => {
@@ -1047,6 +1074,45 @@ const handleGroupDelete = async (group: Group) => {
   }
 }
 
+// 分组编辑
+const handleGroupEdit = (_group: Group) => {
+  ElMessage.info('分组编辑功能暂未实现')
+}
+
+// 分组黑名单检测
+const handleGroupBlacklistCheck = async (group: Group) => {
+  try {
+    ElMessage.info(`开始检测分组 "${group.name}" 的黑名单...`)
+    
+    const response = await groupApi.batchCheckBlacklist(group.id, true)
+    
+    console.log('📊 分组黑名单检测响应:', response)
+    
+    // 显示检测结果
+    if (response.blacklist_matches > 0) {
+      ElMessage.warning(`检测完成！发现 ${response.blacklist_matches} 条黑名单匹配记录`)
+    } else {
+      ElMessage.success('检测完成！未发现黑名单匹配记录')
+    }
+    
+    // 刷新分组列表以获取最新的统计信息
+    await fetchGroupList()
+    
+    // 更新当前选中的分组信息
+    if (selectedGroup.value && selectedGroup.value.id === group.id) {
+      const updatedGroup = groupList.value.find(g => g.id === group.id)
+      if (updatedGroup) {
+        selectedGroup.value = updatedGroup
+      }
+      await fetchOrderList()
+    }
+    
+  } catch (error: any) {
+    console.error('分组黑名单检测失败:', error)
+    ElMessage.error(error.message || '分组黑名单检测失败')
+  }
+}
+
 // 获取分组状态类型
 const getGroupStatusType = (status: string) => {
   switch (status) {
@@ -1055,6 +1121,17 @@ const getGroupStatusType = (status: string) => {
     case 'deleted': return 'danger'
     default: return 'info'
   }
+}
+
+// 获取分组统计信息描述
+const getGroupStatsDescription = (group: Group) => {
+  // 如果已检测订单数为0，说明还没有进行过检测，显示0
+  if (group.checked_orders === 0) {
+    return `订单总数: ${group.total_orders} | 已检测: 0 | 黑名单匹配: 0 (未检测)`
+  }
+  
+  // 如果已检测订单数大于0，显示实际检测结果
+  return `订单总数: ${group.total_orders} | 已检测: ${group.checked_orders} | 黑名单匹配: ${group.blacklist_matches}`
 }
 
 // 获取分组状态文本
@@ -1074,7 +1151,8 @@ const fetchOrderList = async () => {
     const params = {
       skip: (pagination.page - 1) * pagination.size,
       limit: pagination.size,
-      ...searchForm
+      ...searchForm,
+      group_id: searchForm.group_id || undefined
     }
     
     const response = await orderApi.getOrderList(params)
@@ -1240,6 +1318,8 @@ const handleImport = () => {
 }
 
 const beforeUpload = (file: File) => {
+  // 分组名称验证已移除，允许使用文件名作为默认值
+  
   const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
                   file.type === 'application/vnd.ms-excel'
   if (!isExcel) {
@@ -1258,7 +1338,7 @@ const beforeUpload = (file: File) => {
 
 const handleUploadSuccess = (response: any) => {
   if (response.success) {
-    ElMessage.success(`导入成功！导入 ${response.imported_count} 条记录，失败 ${response.failed_count} 条`)
+    ElMessage.success(`导入成功！创建分组"${response.group_name}"，导入 ${response.imported_count} 条记录，失败 ${response.failed_count} 条`)
     if (response.errors && response.errors.length > 0) {
       console.warn('导入错误:', response.errors)
     }
@@ -1267,6 +1347,9 @@ const handleUploadSuccess = (response: any) => {
   }
   importDialogVisible.value = false
   fileList.value = []
+  importGroupName.value = ''
+  // 刷新分组列表和订单列表
+  fetchGroupList()
   fetchOrderList()
 }
 
@@ -1443,6 +1526,11 @@ onMounted(async () => {
 
 .group-list {
   margin-bottom: 20px;
+  width: 100%;
+}
+
+.group-list .el-table {
+  width: 100% !important;
 }
 
 .selected-group-info {
@@ -1471,6 +1559,7 @@ onMounted(async () => {
 .table-container .el-table {
   flex: 1;
   overflow: auto;
+  width: 100% !important;
 }
 
 .pagination-container {
