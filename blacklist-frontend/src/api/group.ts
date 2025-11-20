@@ -29,9 +29,13 @@ export const groupApi = {
 
   // 批量检测黑名单
   batchCheckBlacklist: (groupId: number, forceRecheck: boolean = false): Promise<GroupBatchCheckResponse> => {
+    // This operation can be long-running on the backend for large groups.
+    // Increase axios timeout for this specific request to 2 minutes.
     return request.post('/groups/batch-check', { 
       group_id: groupId, 
       force_recheck: forceRecheck 
+    }, {
+      timeout: 120000
     })
   },
 

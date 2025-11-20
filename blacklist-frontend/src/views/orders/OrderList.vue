@@ -747,7 +747,8 @@ const fetchGroupList = async () => {
     groupLoading.value = true
     const response = await groupApi.getGroupList({
       skip: 0,
-      limit: 100,
+      // 请求更多分组以避免分页导致部分分组不显示
+      limit: 1000,
       status: 'active'
     })
     
@@ -1527,6 +1528,12 @@ onMounted(async () => {
 .group-list {
   margin-bottom: 20px;
   width: 100%;
+}
+
+/* 限制分组列表高度并允许滚动，避免分组数据被页面布局裁剪导致看不到 */
+.group-list {
+  max-height: 360px;
+  overflow-y: auto;
 }
 
 .group-list .el-table {
